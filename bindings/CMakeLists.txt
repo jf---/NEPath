@@ -42,6 +42,52 @@ find_package(Python 3.8 REQUIRED COMPONENTS Interpreter Development.Module Devel
 find_package(nanobind CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
+# Download CGAL (header-only, specific version for compatibility)
+set(CGAL_DIR "${EXTERNAL_DIR}/cgal")
+set(CGAL_INCLUDE_DIR "${CGAL_DIR}/include")
+
+if(NOT EXISTS "${CGAL_DIR}")
+  message(STATUS "Downloading CGAL 6.0.1...")
+  ExternalProject_Add(
+    cgal_download
+    URL https://github.com/CGAL/cgal/releases/download/v6.0.1/CGAL-6.0.1.zip
+    SOURCE_DIR "${CGAL_DIR}"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    LOG_DOWNLOAD ON
+    UPDATE_COMMAND ""
+    PATCH_COMMAND ""
+    TLS_VERIFY ON
+  )
+  add_dependencies(external_downloads cgal_download)
+  set(HAVE_CGAL TRUE)
+else()
+  set(HAVE_CGAL TRUE)
+endif()
+
+# Download Boost headers (specific version for CGAL compatibility)
+# Use SourceForge release which has proper header structure in boost/
+set(BOOST_DIR "${EXTERNAL_DIR}/boost")
+set(BOOST_INCLUDE_DIR "${BOOST_DIR}")
+
+if(NOT EXISTS "${BOOST_DIR}")
+  message(STATUS "Downloading Boost 1.82.0 headers...")
+  ExternalProject_Add(
+    boost_download
+    URL https://archives.boost.io/release/1.82.0/source/boost_1_82_0.tar.gz
+    SOURCE_DIR "${BOOST_DIR}"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    LOG_DOWNLOAD ON
+    UPDATE_COMMAND ""
+    PATCH_COMMAND ""
+    TLS_VERIFY ON
+  )
+  add_dependencies(external_downloads boost_download)
+endif()
+
 # Add include directories
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -130,6 +176,55 @@ endfunction()
 # Create individual extension modules for each C++ file
 # NEPath wrapper module with all NEPath source files
 add_nanobind_extension(_nepath src/nepath_wrapper.cpp ${NEPATH_SOURCES})
+
+# ============================================================================
+# CGAL geometry module (optional)
+# ============================================================================
+if(HAVE_CGAL)
+  # CGAL module - separate from main NEPath module
+  nanobind_add_module(
+    _cgal
+    STABLE_ABI
+    NB_STATIC
+    src/cgal_bindings.cpp
+    src/cgal_geometry.cpp
+  )
+
+  # CGAL-specific configuration (use downloaded headers)
+  target_include_directories(_cgal PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${EIGEN_INCLUDE_DIR}
+    ${CGAL_INCLUDE_DIR}
+    ${BOOST_INCLUDE_DIR}
+  )
+
+  # CGAL compile definitions (header-only mode, use Boost.Multiprecision)
+  target_compile_definitions(_cgal PRIVATE
+    CGAL_HEADER_ONLY=1
+    CGAL_USE_BOOST_MP=1
+    CGAL_DISABLE_GMP=1
+    CGAL_DO_NOT_USE_MPZF=1
+  )
+
+  # Compiler flags
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(_cgal PRIVATE
+      -Wno-deprecated-declarations
+    )
+  endif()
+
+  # Add dependencies (ensure downloads complete before building)
+  add_dependencies(_cgal external_downloads)
+
+  # Install
+  install(TARGETS _cgal LIBRARY DESTINATION nepath_bindings)
+
+  message(STATUS "CGAL geometry module: ENABLED")
+  message(STATUS "CGAL Include Dir: ${CGAL_INCLUDE_DIR}")
+  message(STATUS "Boost Include Dir: ${BOOST_INCLUDE_DIR}")
+else()
+  message(STATUS "CGAL geometry module: DISABLED")
+endif()
 
 message(STATUS "============= Build Configuration =============")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
