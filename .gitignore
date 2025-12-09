@@ -34,3 +34,16 @@
 # visual studio
 .vs/
 x64/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# macOS
+.DS_Store
