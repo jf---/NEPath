@@ -80,10 +80,15 @@ def plot_paths(
             x, y = path.get_arrays()
             color = cmap(i / n_paths)
             ax.plot(x, y, '-', color=color, linewidth=1, alpha=0.8, zorder=5)
-            # Mark start and end points
+            # Mark start and end points with index numbers
             if len(x) > 0:
-                ax.plot(x[0], y[0], 'go', markersize=4, zorder=15)  # Start: green
-                ax.plot(x[-1], y[-1], 'ro', markersize=4, zorder=15)  # End: red
+                ax.plot(x[0], y[0], 'go', markersize=6, zorder=15)  # Start: green
+                ax.plot(x[-1], y[-1], 'ro', markersize=6, zorder=15)  # End: red
+                # Add path number labels next to start/end points
+                ax.annotate(str(i), (x[0], y[0]), textcoords='offset points',
+                           xytext=(3, 3), fontsize=7, color='green', fontweight='bold', zorder=20)
+                ax.annotate(str(i), (x[-1], y[-1]), textcoords='offset points',
+                           xytext=(3, -8), fontsize=7, color='red', fontweight='bold', zorder=20)
 
     # Plot sharp corners if provided
     if sharp_corners:
